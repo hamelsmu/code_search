@@ -1,7 +1,0 @@
-include *.md
-include *.txt
-include *.yml
-include Makefile
-recursive-include fastai/models *
-recursive-include fastai/images *
-
