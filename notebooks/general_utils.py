@@ -1,5 +1,18 @@
 from pathlib import Path
 import logging
+import pickle
+
+
+def save_file_pickle(fname, obj):
+    with open(fname, 'wb') as f:
+        pickle.dump(obj, f)
+
+
+def load_file_pickle(fname):
+    with open(fname, 'rb') as f:
+        obj = pickle.load(f)
+        return obj
+
 
 def read_training_files(data_path):
     """

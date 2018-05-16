@@ -1,138 +1,147 @@
 from fastai.text import *
 from pathlib import Path
+from tqdm import tqdm_notebook
+from keras.preprocessing.sequence import pad_sequences
+from typing import List, Any
+from shutil import copyfile
+import torch
 import logging
-BOS = '_xbos_ '
 
-def list_flatten(l):
+
+def list_flatten(l: List[List[Any]]) -> List[Any]:
     "List[List] --> List"
     return [item for sublist in l for item in sublist]
 
-def preprocess_lm_data(read_data_path,
-                       save_data_path,
-                       train_file='train.docstring',
-                       validation_file='valid.docstring',
-                       max_vocab=50000,
-                       min_freq=15):
-    """
-    Pre-process data for fast.ai language model.
-    
-    Parameters
-    ==========
-    read_data_path : str
-        Path where raw data will be read from.
-        
-    save_data_path : str
-        Path where transformed data and dictionaries will be saved.
-        The following files will be saved in this path:
-        1. itos_dict.pkl  this a dict that maps integer indices to a string.
-        2. stoi_dict.pkl  this is a defaultdict which maps strings to integer indices,
-                           with default value of zero.
-        3. trn_indexed.npy a numpy array that is the indexed version of the training data.
-        4. val_indexed.npy a numpy array that is the indexed version of the validation data.
-     
-     train_file : str
-         The name of the training file in the `read_data_path` defaults to 'train.docstring'
 
-     val_file : str
-         The name of the validation file in the `read_data_path` defaults to 'valid.docstring'
-         
-     max_vocab : int
-          Maximum sie of vocabulary.
-     
-     min_freq : int
-          Minimum frequency threshold for token to be included in vocabulary.
-     
-     Returns
-     =======
-     None
-         This function saves 4 files to the specified `save_data_path` but does not return anything.
-    """
-    read_path = Path(read_data_path)
-    with open(read_path/train_file, 'r') as f:
-        t_comment = f.readlines()
-    logging.warning(f'Training file has {len(t_comment):,} rows')
-    
-    with open(read_path/validation_file, 'r') as f:
-        v_comment = f.readlines()
-    logging.warning(f'Validation file has {len(v_comment):,} rows')
-    
-    # flatten raw data
-    tok_trn = list_flatten([(BOS + x).split() for x in t_comment])
-    tok_val = list_flatten([(BOS + x).split() for x in v_comment])
-
-    # Build vocabulary dicts: index to string (itos), string to index(stoi)
-    freq = Counter(tok_trn) # on training set, then applied to val
-    itos = [o for o,c in freq.most_common(max_vocab) if c>min_freq]
-    logging.warning(f'Vocab Size {len(itos):,}')
-    
-    itos.insert(0, '_pad_')
-    itos.insert(0, '_unk_')
-    stoi = collections.defaultdict(lambda:0, {v:k for k,v in enumerate(itos)})
-    
-    # turn sequence of strings into sequence of integers
-    trn_indexed = np.array([stoi[s] for s in tok_trn])
-    val_indexed = np.array([stoi[s] for s in tok_val])
-    
-    # save all artifacts in `save_data_path`
-    save_path = Path(save_data_path)
-    save_path.mkdir(exist_ok=True)
-    with open(save_path/'itos_dict.pkl', 'wb') as f:
-        pickle.dump(itos, f)
-    
-    with open(save_path/'stoi_dict.pkl', 'wb') as f:
-        pickle.dump(itos, f)
-        
-    np.save(save_path/'trn_indexed.npy', trn_indexed)
-    np.save(save_path/'val_indexed.npy', val_indexed)
-    
-    
-def read_preprocessed_files(processed_data_path):
-    """
-    Read preprocessed files for fast.ai language model.
-    
-    Parameters
-    ==========
-    processed_data_path : str
-        The path where your processed data is stored.  This
-        is a result of running the `preprocess_lm_data` function.
-    
-    Returns
-    ==========
-    Tuple(dict, dict, np.array, np.array)
-    """
-    PATH = Path(processed_data_path)
-    
-    with open(PATH/'itos_dict.pkl', 'rb') as f:
-        itos = pickle.load(f)
-        
-    with open(PATH/'stoi_dict.pkl', 'rb') as f:
-        stoi = pickle.load(f)
-        
-    
-    trn_indexed = np.load(PATH/'trn_indexed.npy')
-    val_indexed = np.load(PATH/'val_indexed.npy')
-    
-    return itos, stoi, trn_indexed, val_indexed
+def _dd():
+    "Helper function for defaultdict."
+    return 1
 
 
-def train_lang_model(model_path, 
-                     data_path,
-                     n_cycle=2,
-                     em_sz=800,
-                     nh=1200,
-                     nl=3,
-                     bptt=20,
-                     wd=1e-7,
-                     bs=32):
+def load_lm_vocab(lm_vocab_file: str):
+    """load vm_vocab object."""
+    with open(lm_vocab_file, 'rb') as f:
+        info = pickle.load(f)
+
+    v = lm_vocab()
+    v.itos = info['itos']
+    v.stoi = info['stoi']
+    v.vocab_size = len(v.itos)
+    v.max_vocab = info['max_vocab']
+    v.min_freq = info['min_freq']
+    v.bos_token = info['bos_token']
+    logging.warning(f'Loaded vocab of size {v.vocab_size:,}')
+    return v
+
+
+class lm_vocab:
+    def __init__(self,
+                 max_vocab: int = 50000,
+                 min_freq: int = 15,
+                 bos_token: str = '_xbos_'):
+        """
+        Builds vocabulary and indexes string for FastAI language model.
+
+        Parameters
+        ==========
+        max_vocab : int
+            Maximum sie of vocabulary.
+
+        min_freq : int
+            Minimum frequency threshold for token to be included in vocabulary.
+
+        bos_token : str
+            Beginning of string token
+        """
+        self.max_vocab = max_vocab
+        self.min_freq = min_freq
+        self.bos_token = '_xbos_'
+
+    def fit(self, data: List) -> None:
+        "Fit vocabulary to a list of documents."
+        logging.warning(f'Processing {len(data):,} rows')
+        # build vocab
+        trn = list_flatten([(self.bos_token + ' ' + x).split() for x in data])
+        freq = Counter(trn)
+        itos = [o for o, c in freq.most_common(self.max_vocab) if c > self.min_freq]
+
+        # insert placeholder tokens
+        itos.insert(0, '_pad_')
+        itos.insert(0, '_unk_')
+        self.vocab_size = len(itos)
+        logging.warning(f'Vocab Size {self.vocab_size:,}')
+
+        # build reverse index
+        stoi = collections.defaultdict(_dd, {v: k for k, v in enumerate(itos)})
+
+        # save vocabulary
+        self.itos = dict(enumerate(itos))
+        self.stoi = stoi
+
+    def transform_flattened(self, data: List[str]) -> List[int]:
+        """Tokenizes, indexes and flattens list of strings for fastai language model."""
+        logging.warning(f'Transforming {len(data):,} rows')
+        tok_trn = list_flatten([(self.bos_token + ' ' + x).split() for x in data])
+        return np.array([self.stoi[s] for s in tok_trn])
+
+    def fit_transform_flattened(self, data: List[str]) -> List[int]:
+        "Applies `fit` then `transform_flattened` methods sequentially."
+        self.fit(data)
+        return self.transform_flattened(data)
+
+    def transfom(self, data: List[str], max_seq_len: int = 60) -> List[List[int]]:
+        """Tokenizes, and indexes list of strings without flattening.
+
+        Parameters
+        ==========
+        data : List[str]
+            List of documents (sentences) that you want to transform.
+        max_seq_len : int
+            The maximum length of any sequence allowed.  Sequences will be truncated
+            and pre-padded to this length.
+        """
+        logging.warning(f'Processing {len(data):,} rows')
+        idx_docs = [[self.stoi[word] for word in sent.split()[:max_seq_len]] for sent in data]
+        # default keras pad_sequences pre-pads to max length with zero
+        return pad_sequences(idx_docs)
+
+    def save(self, destination_file: str) -> None:
+        dest = Path(destination_file)
+        info = {'stoi': self.stoi,
+                'itos': self.itos,
+                'max_vocab': self.max_vocab,
+                'min_freq': self.min_freq,
+                'bos_token': self.bos_token}
+        with open(dest, 'wb') as f:
+            pickle.dump(info, f)
+        logging.warning(f'Saved vocab to {str(dest)}')
+
+
+
+def train_lang_model(model_path: int,
+                     trn_indexed: List[int],
+                     val_indexed: List[int],
+                     vocab_size: int,
+                     n_cycle: int = 2,
+                     em_sz: int = 1200,
+                     nh: int = 1200,
+                     nl: int = 3,
+                     bptt: int = 20,
+                     wd: int = 1e-7,
+                     bs: int = 32):
     """
     Train fast.ai language model.
-    
+
     Parameters
     ==========
     model_path : str
         Path where you want to save model artifacts.
-    data_path : str
-        Path where we can retrieve the data for training the model.
+    trn_indexed : List[int]
+        flattened training data indexed
+    val_indexed : List[int]
+        flattened validation data indexed
+    vocab_size : int
+        size of vocab
     n_cycle : int
         Number of cycles to train model.
     em_sz : int
@@ -147,45 +156,75 @@ def train_lang_model(model_path,
         Weight decay
     bs : int
         Batch size
-        
-    
+
+
     Returns
     =======
     Tuple(fastai.learner, pytorch.model)
-    
+
     Also saves best model weights in file `langmodel_best.torch`
     """
-    PATH = Path(model_path)
-    PATH.mkdir(exist_ok=True)
-    
-    itos, stoi, trn_indexed, val_indexed = read_preprocessed_files(data_path)
-    vs=len(itos)
-    
+    mpath = Path(model_path)
+    mpath.mkdir(exist_ok=True)
+
     # create data loaders
     trn_dl = LanguageModelLoader(trn_indexed, bs, bptt)
     val_dl = LanguageModelLoader(val_indexed, bs, bptt)
-    
+
     # create lang model data
-    md = LanguageModelData(PATH, 1, vs, trn_dl, val_dl, bs=bs, bptt=bptt)
-    
+    md = LanguageModelData(mpath, 1, vocab_size, trn_dl, val_dl, bs=bs, bptt=bptt)
+
     # build learner
     opt_fn = partial(optim.Adam, betas=(0.8, 0.99))
-    drops = np.array([0.25, 0.1, 0.2, 0.02, 0.15])*0.7
-    
-    learner = md.get_model(opt_fn, em_sz, nh, nl, 
-                           dropouti=drops[0], 
-                           dropout=drops[1], 
-                           wdrop=drops[2], 
-                           dropoute=drops[3], 
-                           dropouth=drops[4])
-    lrs = 1e-3 / 2
-    
-    learner.fit(lrs, 2, wds=wd, cycle_len=3, use_clr=(32,10), best_save_name='langmodel_best.torch')
-    model = learner.model.eval()
-    model.reset()
-    return learner, model 
+    drops = np.array([0.25, 0.1, 0.2, 0.02, 0.15]) * 0.7
 
-def list2arr(l):
+    learner = md.get_model(opt_fn, em_sz, nh, nl,
+                           dropouti=drops[0],
+                           dropout=drops[1],
+                           wdrop=drops[2],
+                           dropoute=drops[3],
+                           dropouth=drops[4])
+
+    # learning rate is hardcoded, I already ran learning rate finder on this problem.
+    lrs = 1e-3 / 2
+
+    # borrowed these parameters from fastai
+    learner.fit(lrs, 2, wds=wd, cycle_len=3, use_clr=(32, 10), best_save_name='langmodel_best')
+
+    # eval sets model to inference mode (turns off dropout, etc.)
+    model = learner.model.eval()
+    # defensively calling reset to clear model state (b/c its a stateful model)
+    model.reset()
+
+    state_dict_dest = mpath/'models/langmodel_best.h5'
+    logging.warning(f'State dict for the best model saved here:\n{str(state_dict_dest)}')
+    return learner, model
+
+
+def get_emb_batch(lang_model, np_array, bs=100):
+    """
+    Get encoder embedding from language model in batch.
+    """
+    lang_model.eval()
+    emb = []
+    chunksize = np_array.shape[0] // bs
+    logging.warning(f'Splitting data into {chunksize} chunks.')
+    data_chunked = np.array_split(np_array, chunksize)
+    for i in tqdm_notebook(range(len(data_chunked))):
+        # get batch
+        x = V(data_chunked[i])
+
+        # get predictions
+        lang_model.reset()
+        y = lang_model(x)[-1][-1]
+
+        # collect predictions
+        emb.append(y.data.cpu().numpy())
+
+    return np.concatenate(emb)
+
+
+def list2arr(l: List[int]):
     "Convert list into pytorch Variable."
     raise NotImplementedError
 
@@ -196,33 +235,33 @@ def make_prediction_from_list(model, l):
     """
     Encode a list of integers that represent a sequence of tokens.  The
     purpose is to encode a sentence or phrase.
-    
+
     Parameters
     -----------
     model : fastai language model
     l : list
         list of integers, representing a sequence of tokens that you want to encode
-        
+
     """
     raise NotImplementedError
     arr = list2arr(l)# turn list into pytorch Variable with bs=1
     model.reset()  # language model is stateful, so you must reset upon each prediction
     hidden_states = model(arr)[-1][-1] # RNN Hidden Layer output is last output, and only need the last layer
-    
+
     #return avg-pooling, max-pooling, and last hidden state
     return hidden_states.mean(0), hidden_states.max(0)[0], hidden_states[-1]
 
 
 def get_embeddings(lm_model, list_list_int):
     """
-    Vectorize a list of sequences List[List[int]] using a fast.ai language model. 
-    
+    Vectorize a list of sequences List[List[int]] using a fast.ai language model.
+
     Paramters
     ---------
     lm_model : fastai language model
     list_list_int : List[List[int]]
         A list of sequences to encode
-        
+
     Returns
     -------
     tuple: (avg, mean, last)
@@ -236,6 +275,5 @@ def get_embeddings(lm_model, list_list_int):
         avg_embs.append(avg_)
         mean_embs.append(max_)
         last_embs.append(last_)
-    
+
     return torch.cat(avg_embs), torch.cat(mean_embs), torch.cat(last_embs)
-    
