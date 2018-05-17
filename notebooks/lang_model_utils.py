@@ -291,6 +291,7 @@ def get_emb(vocab, lang_model, sentence_str, last_or_mean='mean'):
     elif last_or_mean == 'last':
         return y_last
 
+
 def list2arr(l: List[int]):
     "Convert list into pytorch Variable."
     raise NotImplementedError
