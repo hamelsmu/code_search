@@ -12,4 +12,5 @@
 
 [5 - TBD]() Use the assets you created to created in steps 3 and 4 to create a semantic search engine.
 
+
 ![Alt Text](./diagram/Diagram.jpg)
