@@ -2,7 +2,7 @@
 
 ###Each step in the below diagram corresponds to a Jupyter notebook in this repo. Additionally, below is a high level description of each step:
 
-[1 - Preprocess Data](./1\ -\ Preprocess\ Data.ipynb): describes how to get python files from gh-archive.org, and use the AST module to clean code and extract docstrings.
+[1 - Preprocess Data](./\1\ -\ Preprocess\ Data.ipynb): describes how to get python files from gh-archive.org, and use the AST module to clean code and extract docstrings.
 
 [2 - Train Function Summarizer](2\ -\ Train\ Function\ Summarizer\ With\ Keras\ +\ TF.ipynb): build a sequence to sequence model to predict a docstring given a python function or method. The primary purpose of this model is for a transfer learning task that requires the extraction of features from code.
 
