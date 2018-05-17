@@ -1,6 +1,6 @@
 ## Table of Contents
 
-###Each step in the below diagram corresponds to a Jupyter notebook in this repo. Additionally, below is a high level description of each step:
+### Each step in the below diagram corresponds to a Jupyter notebook in this repo. Additionally, below is a high level description of each step:
 
 [1 - Preprocess Data](./1\ -\ Preprocess\ Data.ipynb): describes how to get python files from gh-archive.org, and use the AST module to clean code and extract docstrings.
 
