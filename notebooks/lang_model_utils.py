@@ -201,12 +201,52 @@ def train_lang_model(model_path: int,
     return learner, model
 
 
+def get_nonzero_indicator_arr(idx_arr, dim):
+    """
+    Convert the array of indices of size (bs, seq_len) to an indicator
+    matrix of size (bs, seq_len, dim) where the 3rd dimension is just
+    a copy of the 2nd dimension.  The indicator matrix has values 1 or 0
+    indicating 0 for padding and 1 for a non-padding element.  This is
+    useful for ingoring padding elements when computing the average.
+    """
+    assert idx_arr.ndim == 2, 'Input array must be 2D.'
+    x = (np.repeat(idx_arr[:, :, np.newaxis], dim, axis=2) != 0)
+    # set last item in sequence to True, incase its all zeros
+    x[:, -1, :] = True
+    return x
+
+
+def get_mean_emb(raw_emb, idx_arr):
+    """
+    Get mean hidden state over timesteps ignoring padded elements.
+    """
+    assert raw_emb.ndim == 3, 'Embedding must have 3 dimensions: (bs, seq_len, dim)'
+    nzi = get_nonzero_indicator_arr(idx_arr, dim=raw_emb.shape[-1])
+    return np.average(raw_emb, axis=1, weights=nzi)
+
+
 def get_emb_batch(lang_model, np_array, bs=100):
     """
-    Get encoder embedding from language model in batch.
+    Get encoder embeddings from language model in batch.
+
+    Parameters
+    ==========
+    lang_model : fastai language model
+    np_array : numpy.array
+        This is an array of shape (bs, seq_len) where each value is an embedding
+        index.
+
+    Returns
+    =======
+    Tuple : (mean_emb, last_emb)
+
+    mean_emb - this is the average of hidden states over time steps excluding padding.
+    last_emb - this is the hidden state at the last time step.
+
     """
     lang_model.eval()
-    emb = []
+    mean_emb = []
+    last_emb = []
     chunksize = np_array.shape[0] // bs
     logging.warning(f'Splitting data into {chunksize} chunks.')
     data_chunked = np.array_split(np_array, chunksize)
@@ -214,14 +254,21 @@ def get_emb_batch(lang_model, np_array, bs=100):
         # get batch
         x = V(data_chunked[i])
 
-        # get predictions
+        # get raw predictions of shape (bs, seq_len, encoder_dim)
         lang_model.reset()
-        y = lang_model(x)[-1][-1]
+        y = lang_model(x)[-1][-1].data.cpu().numpy()
+
+        # take the mean of all timesteps, ignoring padding
+        # will be of shape (bs, encoder_dim)
+        y_mean = get_mean_emb(raw_emb=y, idx_arr=x.data.cpu().numpy())
+        # get the last hidden state in the sequence.  Returns arr of size (bs, encoder_dim)
+        y_last = y[:, -1, :]
 
         # collect predictions
-        emb.append(y.data.cpu().numpy())
+        mean_emb.append(y_mean)
+        last_emb.append(y_last)
 
-    return np.concatenate(emb)
+    return np.concatenate(mean_emb), np.concatenate(last_emb)
 
 
 def list2arr(l: List[int]):
