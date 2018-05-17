@@ -60,7 +60,6 @@ def build_seq2seq_model(word_emb_dim,
 
     seq2seq_encoder_out = encoder_model(encoder_inputs)
 
-    
     #### Decoder Model ####
     decoder_inputs = Input(shape=(None,), name='Decoder-Input')  # for teacher forcing
 
@@ -76,7 +75,6 @@ def build_seq2seq_model(word_emb_dim,
     # Dense layer for prediction
     decoder_dense = Dense(num_decoder_tokens, activation='softmax', name='Final-Output-Dense')
     decoder_outputs = decoder_dense(x)
-
 
     #### Seq2Seq Model ####
     seq2seq_Model = Model([encoder_inputs, decoder_inputs], decoder_outputs)
