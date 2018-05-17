@@ -44,11 +44,10 @@ def build_seq2seq_model(word_emb_dim,
     Keras.models.Model
     """
 
-    ########################
     #### Encoder Model ####
     encoder_inputs = Input(shape=(encoder_seq_len,), name='Encoder-Input')
 
-    # Word embeding for encoder (ex: Issue Body)
+    # Word embeding for encoder (ex: Issue Titles, Code)
     x = Embedding(num_encoder_tokens, word_emb_dim, name='Body-Word-Embedding', mask_zero=False)(encoder_inputs)
     x = BatchNormalization(name='Encoder-Batchnorm-1')(x)
 
@@ -61,11 +60,11 @@ def build_seq2seq_model(word_emb_dim,
 
     seq2seq_encoder_out = encoder_model(encoder_inputs)
 
-    ########################
+    
     #### Decoder Model ####
     decoder_inputs = Input(shape=(None,), name='Decoder-Input')  # for teacher forcing
 
-    # Word Embedding For Decoder (ex: Issue Titles)
+    # Word Embedding For Decoder (ex: Issue Titles, Docstrings)
     dec_emb = Embedding(num_decoder_tokens, word_emb_dim, name='Decoder-Word-Embedding', mask_zero=False)(decoder_inputs)
     dec_bn = BatchNormalization(name='Decoder-Batchnorm-1')(dec_emb)
 
@@ -78,9 +77,8 @@ def build_seq2seq_model(word_emb_dim,
     decoder_dense = Dense(num_decoder_tokens, activation='softmax', name='Final-Output-Dense')
     decoder_outputs = decoder_dense(x)
 
-    ########################
-    #### Seq2Seq Model ####
 
+    #### Seq2Seq Model ####
     seq2seq_Model = Model([encoder_inputs, decoder_inputs], decoder_outputs)
     return seq2seq_Model
 
