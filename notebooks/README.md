@@ -1,6 +1,10 @@
 ## Table of Contents
 
-### Each step in the below diagram corresponds to a Jupyter notebook in this repo. Additionally, below is a high level description of each step:
+
+![Alt Text](./diagram/Diagram.jpg)
+
+
+### Each step in the above diagram corresponds to a Jupyter notebook in this repo. Additionally, below is a high level description of each step:
 
 [1 - Preprocess Data](https://github.com/hamelsmu/code_search/blob/master/notebooks/1%20-%20Preprocess%20Data.ipynb): describes how to get python files from gh-archive.org, and use the AST module to clean code and extract docstrings.
 
@@ -11,6 +15,3 @@
 [4 - TBD]() Fine-tune the model from step 2 to predict vectors instead of docstrings. These vectors will be produced by feeding docstrings through the language model produced in step 3. 
 
 [5 - TBD]() Use the assets you created to created in steps 3 and 4 to create a semantic search engine.
-
-
-![Alt Text](./diagram/Diagram.jpg)
