@@ -225,7 +225,7 @@ def get_mean_emb(raw_emb, idx_arr):
     return np.average(raw_emb, axis=1, weights=nzi)
 
 
-def get_emb_batch(lang_model, np_array, bs=100):
+def get_emb_batch(lang_model, np_array, bs, dest_dir):
     """
     Get encoder embeddings from language model in batch.
 
@@ -235,24 +235,31 @@ def get_emb_batch(lang_model, np_array, bs=100):
     np_array : numpy.array
         This is an array of shape (bs, seq_len) where each value is an embedding
         index.
+    bs : int
+        batch size.  Set according to your GPU memory.
+    dest_dir : str
+        destination directory
 
     Returns
     =======
-    Tuple : (mean_emb, last_emb)
-
-    mean_emb - this is the average of hidden states over time steps excluding padding.
-    last_emb - this is the hidden state at the last time step.
+    None : this function saves numpy array files into chunks {i} to dest_dir
+    lang_model_mean_emb_{i}.npy - this is the average of hidden states over time steps excluding padding.
+    lang_model_last_emb_{i}.npy - this is the hidden state at the last time step.
 
     """
+    destPath = Path(dest_dir)
+    destPath.mkdir(exist_ok=True)
+    existing_files = list(destPath.glob('*'))
+    num_files = len(existing_files)
+    assert num_files == 0, f'{str(destPath.absolute())} already contains {num_files} please clear files before proceeding.'
+
     lang_model.eval()
-    mean_emb = []
-    last_emb = []
     chunksize = np_array.shape[0] // bs
     logging.warning(f'Splitting data into {chunksize} chunks.')
     data_chunked = np.array_split(np_array, chunksize)
     for i in tqdm_notebook(range(len(data_chunked))):
         # get batch
-        x = V(data_chunked[i])
+        x = V(data_chunked[i], volatile=True)
 
         # get raw predictions of shape (bs, seq_len, encoder_dim)
         lang_model.reset()
@@ -265,11 +272,24 @@ def get_emb_batch(lang_model, np_array, bs=100):
         y_last = y[:, -1, :]
 
         # collect predictions
-        mean_emb.append(y_mean)
-        last_emb.append(y_last)
+        np.save(destPath/f'lang_model_mean_emb_{i}.npy', y_mean)
+        np.save(destPath/f'lang_model_last_emb_{i}.npy', y_last)
 
-    return np.concatenate(mean_emb), np.concatenate(last_emb)
+    logging.warning(f'Saved {2*len(data_chunked)} files to {str(destPath.absolute())}')
 
+
+def get_emb(vocab, lang_model, sentence_str, last_or_mean='mean'):
+    idx_str = vocab.transfom([vocab.bos_token + ' ' + sentence_str])
+    lang_model.eval()
+    lang_model.reset()
+    x = V(idx_str, volatile=True)
+    y = lang_model(x)[-1][-1].data.cpu().numpy()
+    y_mean = get_mean_emb(raw_emb=y, idx_arr=x.data.cpu().numpy())
+    y_last = y[:, -1, :]
+    if last_or_mean == 'mean':
+        return y_mean
+    elif last_or_mean == 'last':
+        return y_last
 
 def list2arr(l: List[int]):
     "Convert list into pytorch Variable."
