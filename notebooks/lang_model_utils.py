@@ -122,9 +122,12 @@ def train_lang_model(model_path: int,
                      trn_indexed: List[int],
                      val_indexed: List[int],
                      vocab_size: int,
+                     lr: float,
                      n_cycle: int = 2,
-                     em_sz: int = 1200,
-                     nh: int = 1200,
+                     cycle_len: int =3,
+                     cycle_mult : int =1,
+                     em_sz: int = 400,
+                     nh: int = 400,
                      nl: int = 3,
                      bptt: int = 20,
                      wd: int = 1e-7,
@@ -185,11 +188,14 @@ def train_lang_model(model_path: int,
                            dropoute=drops[3],
                            dropouth=drops[4])
 
-    # learning rate is hardcoded, I already ran learning rate finder on this problem.
-    lrs = 1e-3 / 2
-
     # borrowed these parameters from fastai
-    learner.fit(lrs, 2, wds=wd, cycle_len=3, use_clr=(32, 10), best_save_name='langmodel_best')
+    learner.fit(lr,
+                n_cycle=n_cycle,
+                wds=wd,
+                cycle_len=cycle_len,
+                use_clr=(32, 10),
+                cycle_mult=cycle_mult,
+                best_save_name='langmodel_best')
 
     # eval sets model to inference mode (turns off dropout, etc.)
     model = learner.model.eval()
@@ -270,10 +276,14 @@ def get_emb_batch(lang_model, np_array, bs, dest_dir):
         y_mean = get_mean_emb(raw_emb=y, idx_arr=x.data.cpu().numpy())
         # get the last hidden state in the sequence.  Returns arr of size (bs, encoder_dim)
         y_last = y[:, -1, :]
+        # get the maximum across timesteps
+        y_max = y.max(1)
 
         # collect predictions
         np.save(destPath/f'lang_model_mean_emb_{i}.npy', y_mean)
         np.save(destPath/f'lang_model_last_emb_{i}.npy', y_last)
+        np.save(destPath/f'lang_model_last_emb_{i}.npy', y_max)
+        np.save(destPath/f'lang_model_pool_emb_{i}.npy', np.concatenate([y_mean, y_max, y_last], axis=1))
 
     logging.warning(f'Saved {2*len(data_chunked)} files to {str(destPath.absolute())}')
 
