@@ -285,7 +285,7 @@ def get_emb_batch(lang_model, np_array, bs, dest_dir):
         np.save(destPath/f'lang_model_last_emb_{i}.npy', y_max)
         np.save(destPath/f'lang_model_pool_emb_{i}.npy', np.concatenate([y_mean, y_max, y_last], axis=1))
 
-    logging.warning(f'Saved {2*len(data_chunked)} files to {str(destPath.absolute())}')
+    logging.warning(f'Saved {4*len(data_chunked)} files to {str(destPath.absolute())}')
 
 
 def get_emb(vocab, lang_model, sentence_str, last_or_mean='mean'):
