@@ -1,11 +1,12 @@
-from fastai.text import *
 from pathlib import Path
+import logging
+from typing import List, Any
 from tqdm import tqdm_notebook
 from keras.preprocessing.sequence import pad_sequences
-from typing import List, Any
-from shutil import copyfile
 import torch
-import logging
+import spacy
+from fastai.text import *
+EN = spacy.load('en')
 
 
 def list_flatten(l: List[List[Any]]) -> List[Any]:
@@ -78,9 +79,15 @@ class lm_vocab:
         self.itos = dict(enumerate(itos))
         self.stoi = stoi
 
-    def transform_flattened(self, data: List[str]) -> List[int]:
+    def transform_flattened(self, data: List[str], dedup:bool = True) -> List[int]:
         """Tokenizes, indexes and flattens list of strings for fastai language model."""
-        logging.warning(f'Transforming {len(data):,} rows')
+        n = len(data)
+        logging.warning(f'Transforming {n:,} rows.')
+        if dedup:
+            data = list(set(data))
+            n2 = len(data)
+            logging.warning(f'Removed {n-n2:,} duplicate rows.')
+
         tok_trn = list_flatten([(self.bos_token + ' ' + x).split() for x in data])
         return np.array([self.stoi[s] for s in tok_trn])
 
@@ -89,7 +96,10 @@ class lm_vocab:
         self.fit(data)
         return self.transform_flattened(data)
 
-    def transfom(self, data: List[str], max_seq_len: int = 60) -> List[List[int]]:
+    def transform(self,
+                 data: List[str],
+                 padding: bool = True,
+                 max_seq_len: int = 60) -> List[List[int]]:
         """Tokenizes, and indexes list of strings without flattening.
 
         Parameters
@@ -101,9 +111,14 @@ class lm_vocab:
             and pre-padded to this length.
         """
         logging.warning(f'Processing {len(data):,} rows')
-        idx_docs = [[self.stoi[word] for word in sent.split()[:max_seq_len]] for sent in data]
+        idx_docs = [[self.stoi[self.bos_token]] + [self.stoi[word] for word in sent.split()[:max_seq_len]] for sent in data]
         # default keras pad_sequences pre-pads to max length with zero
-        return pad_sequences(idx_docs)
+        if padding:
+            # because padding currently wrecks hidden state of lang model, so
+            # by putting padding after (post) sequence we can just ignore the padding hidden states.
+            return pad_sequences(idx_docs, padding='post')
+        elif not padding:
+            return idx_docs
 
     def save(self, destination_file: str) -> None:
         dest = Path(destination_file)
@@ -207,105 +222,8 @@ def train_lang_model(model_path: int,
     return learner, model
 
 
-def get_nonzero_indicator_arr(idx_arr, dim):
-    """
-    Convert the array of indices of size (bs, seq_len) to an indicator
-    matrix of size (bs, seq_len, dim) where the 3rd dimension is just
-    a copy of the 2nd dimension.  The indicator matrix has values 1 or 0
-    indicating 0 for padding and 1 for a non-padding element.  This is
-    useful for ingoring padding elements when computing the average.
-    """
-    assert idx_arr.ndim == 2, 'Input array must be 2D.'
-    x = (np.repeat(idx_arr[:, :, np.newaxis], dim, axis=2) != 0)
-    # set last item in sequence to True, incase its all zeros
-    x[:, -1, :] = True
-    return x
-
-
-def get_mean_emb(raw_emb, idx_arr):
-    """
-    Get mean hidden state over timesteps ignoring padded elements.
-    """
-    assert raw_emb.ndim == 3, 'Embedding must have 3 dimensions: (bs, seq_len, dim)'
-    nzi = get_nonzero_indicator_arr(idx_arr, dim=raw_emb.shape[-1])
-    return np.average(raw_emb, axis=1, weights=nzi)
-
-
-def get_emb_batch(lang_model, np_array, bs, dest_dir):
-    """
-    Get encoder embeddings from language model in batch.
-
-    Parameters
-    ==========
-    lang_model : fastai language model
-    np_array : numpy.array
-        This is an array of shape (bs, seq_len) where each value is an embedding
-        index.
-    bs : int
-        batch size.  Set according to your GPU memory.
-    dest_dir : str
-        destination directory
-
-    Returns
-    =======
-    None : this function saves numpy array files into chunks {i} to dest_dir
-    lang_model_mean_emb_{i}.npy - this is the average of hidden states over time steps excluding padding.
-    lang_model_last_emb_{i}.npy - this is the hidden state at the last time step.
-
-    """
-    destPath = Path(dest_dir)
-    destPath.mkdir(exist_ok=True)
-    existing_files = list(destPath.glob('*'))
-    num_files = len(existing_files)
-    assert num_files == 0, f'{str(destPath.absolute())} already contains {num_files} please clear files before proceeding.'
-
-    lang_model.eval()
-    chunksize = np_array.shape[0] // bs
-    logging.warning(f'Splitting data into {chunksize} chunks.')
-    data_chunked = np.array_split(np_array, chunksize)
-    for i in tqdm_notebook(range(len(data_chunked))):
-        # get batch
-        x = V(data_chunked[i], volatile=True)
-
-        # get raw predictions of shape (bs, seq_len, encoder_dim)
-        lang_model.reset()
-        y = lang_model(x)[-1][-1].data.cpu().numpy()
-
-        # take the mean of all timesteps, ignoring padding
-        # will be of shape (bs, encoder_dim)
-        y_mean = get_mean_emb(raw_emb=y, idx_arr=x.data.cpu().numpy())
-        # get the last hidden state in the sequence.  Returns arr of size (bs, encoder_dim)
-        y_last = y[:, -1, :]
-        # get the maximum across timesteps
-        y_max = y.max(1)
-
-        # collect predictions
-        np.save(destPath/f'lang_model_mean_emb_{i}.npy', y_mean)
-        np.save(destPath/f'lang_model_last_emb_{i}.npy', y_last)
-        np.save(destPath/f'lang_model_last_emb_{i}.npy', y_max)
-        np.save(destPath/f'lang_model_pool_emb_{i}.npy', np.concatenate([y_mean, y_max, y_last], axis=1))
-
-    logging.warning(f'Saved {4*len(data_chunked)} files to {str(destPath.absolute())}')
-
-
-def get_emb(vocab, lang_model, sentence_str, last_or_mean='mean'):
-    idx_str = vocab.transfom([vocab.bos_token + ' ' + sentence_str])
-    lang_model.eval()
-    lang_model.reset()
-    x = V(idx_str, volatile=True)
-    y = lang_model(x)[-1][-1].data.cpu().numpy()
-    y_mean = get_mean_emb(raw_emb=y, idx_arr=x.data.cpu().numpy())
-    y_last = y[:, -1, :]
-    if last_or_mean == 'mean':
-        return y_mean
-    elif last_or_mean == 'last':
-        return y_last
-
-
-def list2arr(l: List[int]):
+def list2arr(l):
     "Convert list into pytorch Variable."
-    raise NotImplementedError
-
     return V(np.expand_dims(np.array(l), -1)).cpu()
 
 
@@ -321,7 +239,6 @@ def make_prediction_from_list(model, l):
         list of integers, representing a sequence of tokens that you want to encode
 
     """
-    raise NotImplementedError
     arr = list2arr(l)# turn list into pytorch Variable with bs=1
     model.reset()  # language model is stateful, so you must reset upon each prediction
     hidden_states = model(arr)[-1][-1] # RNN Hidden Layer output is last output, and only need the last layer
@@ -345,13 +262,57 @@ def get_embeddings(lm_model, list_list_int):
     tuple: (avg, mean, last)
         A tuple that returns the average-pooling, max-pooling over time steps as well as the last time step.
     """
-    raise NotImplementedError
-    avg_embs, mean_embs, last_embs = [], [], []
+    n_rows = len(list_list_int)
+    n_dim = lm_model[0].nhid
+    avgarr = np.empty((n_rows, n_dim))
+    maxarr = np.empty((n_rows, n_dim))
+    lastarr = np.empty((n_rows, n_dim))
 
     for i in tqdm_notebook(range(len(list_list_int))):
         avg_, max_, last_ = make_prediction_from_list(lm_model, list_list_int[i])
-        avg_embs.append(avg_)
-        mean_embs.append(max_)
-        last_embs.append(last_)
+        avgarr[i,:] = avg_.data.numpy()
+        maxarr[i,:] = max_.data.numpy()
+        lastarr[i,:] = last_.data.numpy()
 
-    return torch.cat(avg_embs), torch.cat(mean_embs), torch.cat(last_embs)
+    return avgarr, maxarr, lastarr
+
+
+def tokenize_docstring(text):
+    "Apply tokenization using spacy to docstrings."
+    tokens = EN.tokenizer(text)
+    return [token.text.lower() for token in tokens if not token.is_space]
+
+
+class Query2Emb:
+    "Assists in turning natural language phrases into sentence embeddings from a language model."
+    def __init__(self, lang_model, vocab):
+        self.lang_model = lang_model
+        self.lang_model.eval()
+        self.lang_model.reset()
+        self.vocab = vocab
+        self.stoi = vocab.stoi
+        self.ndim = self._str2emb('This is test to get the dimensionality.').shape[-1]
+
+    def _str2arr(self, str_inp):
+        raw_str = ' '.join(tokenize_docstring(str_inp))
+        raw_arr = self.vocab.transform([raw_str])[0]
+        arr = np.expand_dims(np.array(raw_arr), -1)
+        return V(T(arr))
+
+    def _str2emb(self, str_inp):
+        v_arr = self._str2arr(str_inp)
+        self.lang_model.reset()
+        hidden_states = self.lang_model(v_arr)[-1][-1]
+        return hidden_states
+
+    def emb_mean(self, str_inp):
+        return self._str2emb(str_inp).mean(0).data.numpy()
+
+    def emb_max(self, str_inp):
+        return self._str2emb(str_inp).max(0)[0].data.numpy()
+
+    def emb_last(self, str_inp):
+        return self._str2emb(str_inp)[-1].data.numpy()
+
+    def emb_cat(self, str_inp):
+        return np.concatenate([self.emb_mean(str_inp), self.emb_max(str_inp), self.emb_last(str_inp)], axis=1)
