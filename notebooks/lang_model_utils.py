@@ -1,8 +1,6 @@
 from pathlib import Path
 import logging
 from typing import List, Any
-from shutil import copyfile
-
 from tqdm import tqdm_notebook
 from keras.preprocessing.sequence import pad_sequences
 import torch
@@ -279,6 +277,12 @@ def get_embeddings(lm_model, list_list_int):
     return avgarr, maxarr, lastarr
 
 
+def tokenize_docstring(text):
+    "Apply tokenization using spacy to docstrings."
+    tokens = EN.tokenizer(text)
+    return [token.text.lower() for token in tokens if not token.is_space]
+
+
 class Query2Emb:
     "Assists in turning natural language phrases into sentence embeddings from a language model."
     def __init__(self, lang_model, vocab):
@@ -298,7 +302,7 @@ class Query2Emb:
     def _str2emb(self, str_inp):
         v_arr = self._str2arr(str_inp)
         self.lang_model.reset()
-        hidden_states = lang_model(v_arr)[-1][-1]
+        hidden_states = self.lang_model(v_arr)[-1][-1]
         return hidden_states
 
     def emb_mean(self, str_inp):
