@@ -1,7 +1,7 @@
 ## Table of Contents
 
 
-![Alt Text](./diagram/Diagram.jpg)
+![Alt Text](./diagram/Diagram.png)
 
 
 ### Each step in the above diagram corresponds to a Jupyter notebook in this repo. Additionally, below is a high level description of each step:
