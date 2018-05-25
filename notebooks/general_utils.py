@@ -5,6 +5,7 @@ import pickle
 from typing import List, Callable, Union, Any
 from more_itertools import chunked
 from itertools import chain
+import nmslib
 from pathos.multiprocessing import Pool, cpu_count
 from math import ceil
 
@@ -109,3 +110,22 @@ def get_step2_prerequisite_files(output_directory):
     for url in processed_data_filenames:
         print(f'downloading {url}')
         wget.download(url, out=str(outpath.absolute()))
+
+
+def create_nmslib_search_index(numpy_vectors):
+    """Create search index using nmslib.
+
+    Parameters
+    ==========
+    numpy_vectors : numpy.array
+        The matrix of vectors
+
+    Returns
+    =======
+    nmslib object that has index of numpy_vectors
+    """
+
+    search_index = nmslib.init(method='hnsw', space='cosinesimil')
+    search_index.addDataPointBatch(numpy_vectors)
+    search_index.createIndex({'post': 2}, print_progress=True)
+    return search_index
