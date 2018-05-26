@@ -1,12 +1,12 @@
 ## Table of Contents
 
 
-![Alt Text](./diagram/Diagram.jpg)
+![Alt Text](./diagram/Diagram.png)
 
 
-### Each step in the above diagram corresponds to a Jupyter notebook in this repo. Additionally, below is a high level description of each step:
+### Each step in the above diagram corresponds to a Jupyter notebook in this repo. Below is a high level description of each step:
 
-[1 - Preprocess Data](https://github.com/hamelsmu/code_search/blob/master/notebooks/1%20-%20Preprocess%20Data.ipynb): describes How to get python files hosted on (google cloud bucket by the generous folks on the [Kubeflow](https://kubernetes.io/blog/2017/12/introducing-kubeflow-composable/) team), and use the AST module to clean code and extract docstrings.
+[1 - Preprocess Data](https://github.com/hamelsmu/code_search/blob/master/notebooks/1%20-%20Preprocess%20Data.ipynb): describes how to get python files from BigQuery, and use the AST module to clean code and extract docstrings.
 
 [2 - Train Function Summarizer](https://github.com/hamelsmu/code_search/blob/master/notebooks/2%20-%20Train%20Function%20Summarizer%20With%20Keras%20%2B%20TF.ipynb): build a sequence-to-sequence model to predict a [docstring](https://www.python.org/dev/peps/pep-0257/#id16) given a python function or method. The primary purpose of this model is for a transfer learning task that requires the extraction of features from code.
 

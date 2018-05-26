@@ -56,7 +56,7 @@ class lm_vocab:
         """
         self.max_vocab = max_vocab
         self.min_freq = min_freq
-        self.bos_token = '_xbos_'
+        self.bos_token = bos_token
 
     def fit(self, data: List) -> None:
         "Fit vocabulary to a list of documents."
