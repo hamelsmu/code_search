@@ -12,6 +12,6 @@
 
 [3 - Train Language Model](https://github.com/hamelsmu/code_search/blob/master/notebooks/3%20-%20Train%20Language%20Model%20Using%20FastAI.ipynb): Build a language model using [Fastai](https://github.com/fastai/fastai) on a corpus of docstrings. We will use this model for transfer learning to encode short phrases or sentences, such as docstrings and search queries.
 
-[4 - Train Code2Emb Model](): Fine-tune the model from step 2 to predict vectors instead of docstrings. This model will then be used to represent code in the same vector space as the sentence embeddings produced in step 3. 
+[4 - Train Code2Emb Model](https://github.com/hamelsmu/code_search/blob/master/notebooks/4%20-%20Train%20Model%20To%20Map%20Code%20Embeddings%20to%20Language%20Embeddings.ipynb): Fine-tune the model from step 2 to predict vectors instead of docstrings. This model will then be used to represent code in the same vector space as the sentence embeddings produced in step 3. 
 
 [5 - TBD](): Use the assets you created to created in steps 3 and 4 to create a semantic search engine.
