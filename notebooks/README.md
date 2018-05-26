@@ -6,12 +6,12 @@
 
 ### Each step in the above diagram corresponds to a Jupyter notebook in this repo. Additionally, below is a high level description of each step:
 
-[1 - Preprocess Data](https://github.com/hamelsmu/code_search/blob/master/notebooks/1%20-%20Preprocess%20Data.ipynb): describes how to get python files from gh-archive.org, and use the AST module to clean code and extract docstrings.
+[1 - Preprocess Data](https://github.com/hamelsmu/code_search/blob/master/notebooks/1%20-%20Preprocess%20Data.ipynb): describes How to get python files hosted on (google cloud bucket by the generous folks on the [Kubeflow](https://kubernetes.io/blog/2017/12/introducing-kubeflow-composable/) team), and use the AST module to clean code and extract docstrings.
 
-[2 - Train Function Summarizer](https://github.com/hamelsmu/code_search/blob/master/notebooks/2%20-%20Train%20Function%20Summarizer%20With%20Keras%20%2B%20TF.ipynb): build a sequence to sequence model to predict a docstring given a python function or method. The primary purpose of this model is for a transfer learning task that requires the extraction of features from code.
+[2 - Train Function Summarizer](https://github.com/hamelsmu/code_search/blob/master/notebooks/2%20-%20Train%20Function%20Summarizer%20With%20Keras%20%2B%20TF.ipynb): build a sequence-to-sequence model to predict a [docstring](https://www.python.org/dev/peps/pep-0257/#id16) given a python function or method. The primary purpose of this model is for a transfer learning task that requires the extraction of features from code.
 
 [3 - Train Language Model](https://github.com/hamelsmu/code_search/blob/master/notebooks/3%20-%20Train%20Language%20Model%20Using%20FastAI.ipynb): Build a language model using [Fastai](https://github.com/fastai/fastai) on a corpus of docstrings. We will use this model for transfer learning to encode short phrases or sentences, such as docstrings and search queries.
 
-[4 - TBD]() Fine-tune the model from step 2 to predict vectors instead of docstrings. These vectors will be produced by feeding docstrings through the language model produced in step 3. 
+[4 - Train Code2Emb Model](): Fine-tune the model from step 2 to predict vectors instead of docstrings. This model will then be used to represent code in the same vector space as the sentence embeddings produced in step 3. 
 
-[5 - TBD]() Use the assets you created to created in steps 3 and 4 to create a semantic search engine.
+[5 - TBD](): Use the assets you created to created in steps 3 and 4 to create a semantic search engine.
