@@ -300,7 +300,7 @@ class Query2Emb:
         return V(T(arr))
 
     def _str2emb(self, str_inp):
-        v_arr = self._str2arr(str_inp)
+        v_arr = self._str2arr(str_inp).cpu()
         self.lang_model.reset()
         hidden_states = self.lang_model(v_arr)[-1][-1]
         return hidden_states
