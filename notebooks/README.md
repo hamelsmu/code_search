@@ -14,4 +14,4 @@
 
 [4 - Train Code2Emb Model](https://github.com/hamelsmu/code_search/blob/master/notebooks/4%20-%20Train%20Model%20To%20Map%20Code%20Embeddings%20to%20Language%20Embeddings.ipynb): Fine-tune the model from step 2 to predict vectors instead of docstrings. This model will  be used to represent code in the same vector space as the sentence embeddings produced in step 3. 
 
-[5 - Build Search Engine](https://github.com/hamelsmu/code_search/blob/master/notebooks/5%20-%20Build%20Search%20Index.ipynb): Use the assets you created to created in steps 3 and 4 to create a semantic search engine.
+[5 - Build Search Engine](https://github.com/hamelsmu/code_search/blob/master/notebooks/5%20-%20Build%20Search%20Index.ipynb): Use the assets you created to created in steps 3 and 4 to create a semantic search tool.
