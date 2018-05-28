@@ -3,7 +3,7 @@
 
 ## Semantic Code Search
 
-Code For Medium Article: "[How To Create A Natural Language Semantic Search Engine for Arbitrary Objects With Deep Learning]()"
+Code For Medium Article: "[How To Create Natural Language Semantic Search for Arbitrary Objects With Deep Learning]()"
 
 ![Alt text](./gifs/live_search.gif)
 
