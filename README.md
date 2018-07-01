@@ -1,5 +1,7 @@
 [![GitHub license](https://img.shields.io/github/license/hamelsmu/code_search.svg)](https://github.com/hamelsmu/code_search/blob/master/LICENSE)
 [![Python 3.6](https://img.shields.io/badge/python-3.6-blue.svg)](https://www.python.org/downloads/release/python-360/)
+[![GitHub issues](https://img.shields.io/github/issues/hamelsmu/code_search.svg)](https://github.com/hamelsmu/code_search/issues)
+
 
 ## Semantic Code Search
 
