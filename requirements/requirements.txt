@@ -191,7 +191,7 @@ Pygments==2.2.0
 PyHive==0.5.1
 pylint==1.7.4
 pyodbc==4.0.17
-pyOpenSSL==17.2.0
+pyOpenSSL==17.5.0
 pyparsing==2.2.0
 pyperclip==1.6.0
 Pyphen==0.9.4
