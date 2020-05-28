@@ -10,6 +10,13 @@ Code For Medium Article: "[How To Create Natural Language Semantic Search for Ar
 ![Alt text](./gifs/live_search.gif)
 
 ---
+
+## Warning - This Project Is Deprecated In Favor Of [CodeSearchNet](https://github.com/github/codesearchnet)
+
+**The techniques presented here are old and have been significantly refined in a subsequent project called [CodeSearchNet](https://github.com/github/codesearchnet), with an associated [paper](https://arxiv.org/abs/1909.09436).**
+
+I recommend looking at the aforementioned project for a more modern approach to this topic, as in retrospect this blog post is somewhat of an ugly hack.
+
 ## Resources
 
 #### Docker Containers
