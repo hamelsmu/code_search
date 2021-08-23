@@ -103,7 +103,7 @@ jupyter-core==4.4.0
 jupyter-highlight-selected-word==0.2.0
 jupyter-latex-envs==1.4.4
 jupyter-nbextensions-configurator==0.4.0
-jupyterlab==0.27.0
+jupyterlab==1.2.21
 jupyterlab-launcher==0.4.0
 jupyterthemes==0.19.1
 kaggle-cli==0.12.13
