@@ -120,7 +120,7 @@ MarkupSafe==1.0
 matplotlib==2.2.2
 mccabe==0.6.1
 MechanicalSoup==0.8.0
-mistune==0.8.3
+mistune==2.0.3
 mizani==0.4.6
 more-itertools==4.1.0
 mpmath==0.19
